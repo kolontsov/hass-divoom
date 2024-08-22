@@ -46,6 +46,8 @@ PARAM_PLAYER2 = 'player2'
 
 PARAM_FILE = 'file'
 
+PARAM_NUMBER = 'number'
+
 PARAM_RAW = 'raw'
 
 VALID_MODES = {
@@ -61,6 +63,7 @@ VALID_MODES = {
     'game',
     'gamecontrol',
     'image',
+    'number',
     'keyboard',
     'light',
     'lyrics',
@@ -310,6 +313,10 @@ class DivoomNotificationService(BaseNotificationService):
             image_file = data.get(PARAM_FILE)
             image_path = os.path.join(self._media_directory, image_file)
             self._device.show_image(image_path)
+
+        elif mode == "number":
+            number = data.get(PARAM_NUMBER)
+            self._device.show_number(number)
 
         elif mode == "countdown":
             value = data.get(PARAM_VALUE)
