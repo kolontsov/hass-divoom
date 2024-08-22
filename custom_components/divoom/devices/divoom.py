@@ -5,6 +5,107 @@ from PIL import Image
 
 class Divoom:
     """Class Divoom encapsulates the Divoom Bluetooth communication."""
+    DIGITS3x7 = {
+        '0': [
+            [1,1,1],
+            [1,0,1],
+            [1,0,1],
+            [1,0,1],
+            [1,0,1],
+            [1,0,1],
+            [1,1,1]
+        ],
+        '1': [
+            [0,1,0],
+            [1,1,0],
+            [0,1,0],
+            [0,1,0],
+            [0,1,0],
+            [0,1,0],
+            [1,1,1]
+        ],
+        '2': [
+            [1,1,1],
+            [0,0,1],
+            [0,0,1],
+            [1,1,1],
+            [1,0,0],
+            [1,0,0],
+            [1,1,1]
+        ],
+        '3': [
+            [1,1,1],
+            [0,0,1],
+            [0,0,1],
+            [0,1,1],
+            [0,0,1],
+            [0,0,1],
+            [1,1,1]
+        ],
+        '4': [
+            [1,0,1],
+            [1,0,1],
+            [1,0,1],
+            [1,1,1],
+            [0,0,1],
+            [0,0,1],
+            [0,0,1]
+        ],
+        '5': [
+            [1,1,1],
+            [1,0,0],
+            [1,0,0],
+            [1,1,1],
+            [0,0,1],
+            [0,0,1],
+            [1,1,1]
+        ],
+        '6': [
+            [1,1,1],
+            [1,0,0],
+            [1,0,0],
+            [1,1,1],
+            [1,0,1],
+            [1,0,1],
+            [1,1,1]
+        ],
+        '7': [
+            [1,1,1],
+            [0,0,1],
+            [0,0,1],
+            [0,0,1],
+            [0,0,1],
+            [0,0,1],
+            [0,0,1]
+        ],
+        '8': [
+            [1,1,1],
+            [1,0,1],
+            [1,0,1],
+            [1,1,1],
+            [1,0,1],
+            [1,0,1],
+            [1,1,1]
+        ],
+        '9': [
+            [1,1,1],
+            [1,0,1],
+            [1,0,1],
+            [1,1,1],
+            [0,0,1],
+            [0,0,1],
+            [1,1,1]
+        ],
+        '.': [
+            [0,0,0],
+            [0,0,0],
+            [0,0,0],
+            [0,0,0],
+            [0,0,0],
+            [0,0,0],
+            [0,1,0],
+        ],
+    }
     
     COMMANDS = {
         "set radio": 0x05,
@@ -713,3 +814,53 @@ class Divoom:
         while self.receive(512) == 512:
             self.drop_message_buffer()
 
+    def num_to_bitmap(self, num):
+        pixels = [0] * (self.size * self.size)
+
+        num_str = str(math.floor(num))
+        digit_width = 3
+        digit_height = 7
+        total_width = len(num_str) * (digit_width + 1) - 1
+        start_x = (self.size - total_width) // 2
+        start_y = (self.size - digit_height) // 2 - 1
+
+        for i, digit in enumerate(num_str):
+            for y in range(digit_height):
+                for x in range(digit_width):
+                    if self.DIGITS3x7[digit][y][x]:
+                        px = start_x + i * (digit_width + 1) + x
+                        py = start_y + y
+                        pixels[py * self.size + px] = 1
+
+        n_dots = math.floor(10*round(num-math.floor(num), 1))
+        start_y = start_y + digit_height + 2
+
+        for i in range(9):
+            px = 3+i
+            print(i)
+            if (i<n_dots):
+                pixels[start_y*self.size+px] = 1
+            else:
+                pixels[start_y*self.size+px] = 2
+
+        return pixels
+
+    def show_number(self, num):
+        colors = []
+        colors.append([0, 0, 0])
+        colors.append([127, 0, 0])
+        colors.append([80, 80, 80])
+        colorCount = len(colors)
+
+        bitmap = self.num_to_bitmap(num)
+
+        frame = []
+        frame += [0x00, 0x00]  # No animation delay
+        frame += [0x00]        # Static image
+        frame += colorCount.to_bytes(1, byteorder='big')
+        for color in colors:
+            frame += self.convert_color(color)
+        frame += self.process_pixels(bitmap, colors)
+        prepared_frame = self.make_frame(frame)
+        res = [0x00, 0x0A, 0x0A, 0x04] + prepared_frame[0]
+        return self.send_command("set image", res, skipRead=True)
